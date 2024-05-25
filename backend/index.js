@@ -12,15 +12,32 @@ const SCHEMA = buildSchema(`
         id: ID!,
         name: String!,
         content: String!,
+        developer: Developer!
+    }
+    type Developer {
+        id: ID!,
+        name: String!
     }
     type Query {
         projects: [Project!]!
+        developers: [Developer!]!
+        project(id: ID!): Project
     }
 `);
 
 const ROOT = {
-    projects () {
-        return db.projects;
+    projects: () => {
+        return db.projects.map(project => ({
+            ...project,
+            developer: db.developers.find((dev) => dev.id == project.developerId)
+        }));
+    },
+    developers: () => {
+        return db.developers;
+    },
+    project: (args) => {
+       const project = db.projects.find(p => p.id == args.id);
+       return { ... project, developer: db.developers.find((dev) => dev.id == project.developerId)}
     }
 };
 
