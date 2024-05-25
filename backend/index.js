@@ -1,44 +1,48 @@
 import express from 'express';
 import { createHandler } from 'graphql-http/lib/use/express';
-import { buildSchema } from 'graphql';
 import cors from 'cors';
-import pkg from 'ruru/server';
+import { ruruHTML } from 'ruru/server';
 import db from './_db.js';
+import SCHEMA from './schema/index.js';
 
-const { ruru } = pkg;
-
-const SCHEMA = buildSchema(`
-    type Project {
-        id: ID!,
-        name: String!,
-        content: String!,
-    }
-    type Query {
-        projects: [Project!]!
-    }
-`);
 
 const ROOT = {
-    projects () {
-        return db.projects;
+    projects: () => {
+        return db.projects.map(project => ({
+            ...project,
+            developer: db.developers.find((dev) => dev.id == project.developerId)
+        }));
+    },
+    developers: () => {
+        return db.developers;
+    },
+    project: (args) => {
+       const project = db.projects.find(p => p.id == args.id);
+       return { ...project, developer: db.developers.find((dev) => dev.id == project.developerId)};
+    },
+    addDeveloper: ({ input }) => {
+        db.developers.push(input);
+        return input;
+    },
+    updateDeveloper: ({ id, edit}) => {
+        const developer = db.developers.find(d => d.id == id);
+        if (edit.name) developer.name = edit.name;
+        return developer;
     }
 };
 
 const app = express();
 
-// Enable CORS for all routes
 app.use(cors());
 
-// GraphQL endpoint
 app.all("/graphql", createHandler({
     schema: SCHEMA,
     rootValue: ROOT,
 }));
 
-// Serve the ruru GraphQL editor
 app.get("/", (req, res) => {
     res.type("html");
-    res.end(ruru({ endpoint: "/graphql" }));
+    res.end(ruruHTML({ endpoint: "/graphql" }));
 });
 
 const PORT = 4000;
